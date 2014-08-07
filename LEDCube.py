@@ -1,5 +1,12 @@
 import time
-import RPi.GPIO as GPIO
+try:
+	import RPi.GPIO as GPIO
+except ImportError:
+	import GPIO
+	import matplotlib.pyplot as plt
+	from mpl_toolkits.mplot3d import Axes3D
+	global emulated
+	emulated = True
 import threading
 import numpy as np
 import Queue
@@ -15,7 +22,7 @@ class LEDCube:
 				if pin<27:
 					GPIO.setup(pin, GPIO.OUT)
 
-			self.lattice = np.zeros((n,n,n))
+			self.lattice = np.zeros((n,n,n),dtype=bool)
 			self.n = n
 
 			self.dt = dt
@@ -24,6 +31,7 @@ class LEDCube:
 			self.running = True
 
 		def run(self):
+			global emulated
 			while self.running:
 				while not self.q.empty():
 					e = self.q.get()
@@ -39,6 +47,10 @@ class LEDCube:
 				GPIO.output(26,1)
 				self.layer = (self.layer+1)%self.n
 				GPIO.output(26,0)
+
+				if emulated:
+					GPIO.display(self)
+
 				time.sleep(self.dt/1000)
 
 		def stop(self):
@@ -57,13 +69,13 @@ class LEDCube:
 		self.thread.lattice[coord] = val
 
 	def toggle(self,coord):
-		self.thread.lattice[coord] = 1-self.thread.lattice[coord]
+		self.thread.lattice[coord] = not self.thread.lattice[coord]
 
 	def fillCol(self,col,h,val=1):
 		for i in range(0,h):
 			self.thread.lattice[i][col] = val
 		for i in range(h,self.n):
-			self.thread.lattice[i][col] = 1-val
+			self.thread.lattice[i][col] = not val
 
 	def fill(self, h, val=1):
 		for x in range(0,self.n):
